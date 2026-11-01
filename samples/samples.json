@@ -1,0 +1,61 @@
+{
+  "memes": [
+    {
+      "file": "cuoi_tuoi.png",
+      "name": "Cười tươi",
+      "tags": [
+        "hài hước",
+        "vui",
+        "cười"
+      ],
+      "description": "Mặt vàng cười tươi"
+    },
+    {
+      "file": "soc_nang.png",
+      "name": "Sốc nặng",
+      "tags": [
+        "bất ngờ",
+        "sốc",
+        "hoảng"
+      ],
+      "description": "Mặt cam há miệng sốc"
+    },
+    {
+      "file": "gat_gu.gif",
+      "name": "Gật gù",
+      "tags": [
+        "đồng tình",
+        "cạn lời",
+        "mỉa mai"
+      ],
+      "description": "Mặt xanh gật gù"
+    },
+    {
+      "file": "bat_ngo.mp4",
+      "name": "Bất ngờ",
+      "tags": [
+        "bất ngờ",
+        "sốc"
+      ],
+      "description": "Video meme có tiếng bíp"
+    }
+  ],
+  "texts": {
+    "screenshot_1.png": [
+      {
+        "kind": "post",
+        "body": "Ở đời có một chân lý chua hơn bát canh dưa khú: cưới về rồi mới biết ai là người rửa bát.\nAnh ấy bảo 90% đàn ông biết nấu ăn, chỉ là không muốn nấu thôi."
+      },
+      {
+        "kind": "post",
+        "body": "Thế là tôi để anh ấy nấu 3 bữa liền. Bữa đầu cháy nồi, bữa hai mặn chát, bữa ba thì gọi đồ ăn ngoài.\nGiờ anh ấy nói chân lý là phải chia việc cho công bằng!"
+      }
+    ],
+    "screenshot_2.png": [
+      {
+        "kind": "comment",
+        "body": "Đọc xong cười muốn xỉu, nhà mình y chang vậy luôn, bữa ba gọi đồ ăn ngoài là chuẩn bài rồi."
+      }
+    ]
+  }
+}

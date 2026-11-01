@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="vi" class="bg-black">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cài đặt — Threads Video</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: '#7C3AED', 'brand-light': '#A78BFA' } } } }</script>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="bg-black text-white min-h-screen">
+<div id="toast-container"></div>
+<header id="app-header"></header>
+
+<main class="max-w-3xl mx-auto px-4 py-6 space-y-6 pb-28">
+  <h1 class="text-xl font-bold">Cài đặt</h1>
+
+  <!-- AI -->
+  <section class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-1">🤖 AI (đọc chữ từ ảnh, chia câu, chọn meme)</h2>
+    <p class="text-xs text-zinc-500 mb-4">Key chỉ lưu trong <code>config.json</code> trên máy bạn, không bao giờ hiển thị lại đầy đủ.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4" id="provider-group">
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="gemini" class="hidden"/><span>Gemini<small>Google · có hạn mức miễn phí</small></span></label>
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="claude" class="hidden"/><span>Claude<small>Anthropic</small></span></label>
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="openai" class="hidden"/><span>OpenAI<small>GPT</small></span></label>
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="zai" class="hidden"/><span>Z.ai (GLM)<small>Trả phí, rất rẻ</small></span></label>
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="openrouter" class="hidden"/><span>OpenRouter<small>Có model :free</small></span></label>
+      <label class="provider-opt"><input type="radio" name="llm_provider" value="ollama" class="hidden" onchange="onProviderChange()"/><span>🖥️ Máy này (Ollama)<small>Miễn phí, không cần key, chạy offline</small></span></label>
+    </div>
+    <div id="ollama-box" class="hidden mb-4 bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3">
+      <p class="text-sm text-zinc-300">AI chạy ngay trên máy bạn bằng <b>Ollama</b>. Cần cài Ollama 1 lần:
+        <a class="underline text-brand-light" href="https://ollama.com/download" target="_blank">tải tại ollama.com/download</a>
+        → cài → mở (biểu tượng con lạc đà ở khay hệ thống).</p>
+      <div id="ollama-status" class="text-sm text-zinc-400">Đang kiểm tra Ollama…</div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm text-zinc-400">Model (đọc chữ + chọn meme)</label>
+          <input id="ollama_model" list="ollama-models" class="inp mt-1 font-mono" placeholder="qwen3.5:4b"/>
+        </div>
+        <div>
+          <label class="text-sm text-zinc-400">Model đọc ảnh (để trống = dùng chung)</label>
+          <input id="ollama_vision_model" list="ollama-models" class="inp mt-1 font-mono" placeholder="để trống"/>
+        </div>
+      </div>
+      <datalist id="ollama-models"></datalist>
+      <div>
+        <label class="text-sm text-zinc-400">Địa chỉ Ollama</label>
+        <input id="ollama_url" class="inp mt-1 font-mono text-xs" placeholder="http://localhost:11434"/>
+      </div>
+      <div id="ollama-reco" class="space-y-2"></div>
+      <div id="pull-box" class="hidden">
+        <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden"><div id="pull-bar" class="progress-shimmer h-2" style="width:0%"></div></div>
+        <p id="pull-label" class="text-xs text-zinc-500 mt-1"></p>
+      </div>
+      <button onclick="checkOllama()" class="btn btn-ghost text-xs">↻ Kiểm tra lại Ollama</button>
+    </div>
+    <div class="space-y-3">
+      <div data-key="gemini_api_key"><label class="text-sm text-zinc-400">Gemini API key —
+        <a class="underline" href="https://aistudio.google.com/app/apikey" target="_blank">lấy key</a></label></div>
+      <div data-key="claude_api_key"><label class="text-sm text-zinc-400">Claude API key —
+        <a class="underline" href="https://console.anthropic.com/settings/keys" target="_blank">lấy key</a></label></div>
+      <div data-key="openai_api_key"><label class="text-sm text-zinc-400">OpenAI API key —
+        <a class="underline" href="https://platform.openai.com/api-keys" target="_blank">lấy key</a></label></div>
+      <div>
+        <label class="text-sm text-zinc-400">OpenAI Base URL (tùy chọn — để trống = api.openai.com; điền để dùng dịch vụ tương thích OpenAI khác)</label>
+        <input id="openai_base_url" class="inp mt-1 font-mono" placeholder="để trống"/>
+      </div>
+      <div data-key="zai_api_key"><label class="text-sm text-zinc-400">Z.ai API key —
+        <a class="underline" href="https://docs.z.ai/guides/overview/quick-start" target="_blank">lấy key</a>
+        <span class="text-zinc-500">(nạp tiền ở Billing, KHÔNG cần mua Coding Plan)</span></label></div>
+      <div data-key="openrouter_api_key"><label class="text-sm text-zinc-400">OpenRouter API key —
+        <a class="underline" href="https://openrouter.ai/keys" target="_blank">lấy key</a>
+        <span class="text-zinc-500">(model có đuôi <code>:free</code> là miễn phí, có giới hạn tốc độ)</span></label></div>
+      <div>
+        <label class="text-sm text-zinc-400">Model của nhà cung cấp chính (để trống = mặc định: Gemini <code>gemini-3.8-flash</code>,
+          Claude <code>claude-sonnet-5-5</code>, OpenAI <code>gpt-4o-mini</code>, Z.ai <code>glm-5.3-flash</code>,
+          OpenRouter <code>z-ai/glm-5.3-flash:free</code>)</label>
+        <input id="llm_model" class="inp mt-1" placeholder="để trống"/>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm text-zinc-400">Dự phòng khi nhà cung cấp chính hết tiền / hết hạn mức / bị giới hạn</label>
+          <select id="fallback_provider" class="inp mt-1" onchange="onProviderChange()">
+            <option value="">Tắt</option>
+            <option value="gemini">Gemini</option>
+            <option value="claude">Claude</option>
+            <option value="openai">OpenAI</option>
+            <option value="zai">Z.ai (GLM)</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">🖥️ Máy này (Ollama)</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-zinc-400">Model dự phòng (để trống = mặc định)</label>
+          <input id="fallback_model" class="inp mt-1" placeholder="để trống"/>
+        </div>
+      </div>
+      <button onclick="testLLM(this)" class="btn btn-ghost">Lưu & kiểm tra kết nối AI</button>
+      <p id="llm-test" class="text-sm"></p>
+    </div>
+  </section>
+
+  <!-- Giọng đọc -->
+  <section class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-4">🗣️ Giọng đọc</h2>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm text-zinc-400">Công cụ</label>
+        <select id="tts_engine" class="inp mt-1" onchange="fillVoices()">
+          <option value="edge">Edge-TTS (online, miễn phí)</option>
+          <option value="vieneu">VieNeu-TTS (offline — cần cài thêm)</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-zinc-400">Giọng</label>
+        <select id="tts_voice" class="inp mt-1"></select>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-sm text-zinc-400">Tốc độ: <b id="speed-label"></b></label>
+        <input id="tts_speed" type="range" min="-30" max="50" step="5" class="w-full mt-2"
+               oninput="document.getElementById('speed-label').textContent = fmtSpeed(this.value)"/>
+      </div>
+    </div>
+    <div class="flex gap-2 items-center mt-3">
+      <input id="tts-text" class="inp" value="Ở đời có một chân lý chua hơn bát canh dưa khú."/>
+      <button onclick="testTTS(this)" class="btn btn-ghost shrink-0">▶ Nghe thử</button>
+    </div>
+  </section>
+
+  <!-- Âm thanh & video -->
+  <section class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-4">🎬 Video & âm thanh</h2>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm text-zinc-400">Âm lượng nhạc nền: <b id="music-label"></b></label>
+        <input id="music_volume" type="range" min="0" max="50" step="1" class="w-full mt-2"
+               oninput="document.getElementById('music-label').textContent = this.value + '%'"/>
+      </div>
+      <div>
+        <label class="text-sm text-zinc-400">Nhạc nền mặc định (khi chưa chọn bài ở bước tạo video)</label>
+        <select id="music_mode" class="inp mt-1">
+          <option value="random">🎲 Ngẫu nhiên một bài trong thư mục nhạc</option>
+          <option value="none">🔇 Không dùng nhạc nền</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-zinc-400">Âm lượng tiếng “bụp”: <b id="sfx-label"></b></label>
+        <input id="sfx_volume" type="range" min="0" max="100" step="5" class="w-full mt-2"
+               oninput="document.getElementById('sfx-label').textContent = this.value + '%'"/>
+      </div>
+      <div>
+        <label class="text-sm text-zinc-400">Độ dài tối đa mỗi video (giây)</label>
+        <input id="max_duration" type="number" min="15" max="600" class="inp mt-1"/>
+        <p class="text-xs text-zinc-500 mt-1">Dài hơn sẽ tự chia Part 1, Part 2… (có chữ “Part N” ở góc).</p>
+      </div>
+      <div>
+        <label class="text-sm text-zinc-400">Mật độ meme</label>
+        <select id="meme_density" class="inp mt-1">
+          <option value="ít">Ít — khoảng 1 meme mỗi thẻ</option>
+          <option value="vừa">Vừa — khoảng 1 meme mỗi 2–3 câu</option>
+          <option value="nhiều">Nhiều — khoảng 1 meme mỗi 1–2 câu</option>
+        </select>
+      </div>
+    </div>
+    <div class="space-y-3 mt-5">
+      <label class="toggle-switch gap-3 text-sm"><input type="checkbox" id="meme_video_audio"/><span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span>Phát tiếng của meme dạng video <small class="text-zinc-500">(tắt thì dùng tiếng “bụp” như meme ảnh)</small></span></label>
+      <label class="toggle-switch gap-3 text-sm"><input type="checkbox" id="hide_author"/><span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span>Che tên tác giả bài gốc <small class="text-zinc-500">(người bình luận luôn được che)</small></span></label>
+      <label class="toggle-switch gap-3 text-sm"><input type="checkbox" id="show_transition"/><span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span>Câu chuyển cảnh trước phần bình luận</span></label>
+      <input id="transition_text" class="inp" placeholder="Và đây là bình luận của cư dân mạng:"/>
+      <label class="toggle-switch gap-3 text-sm"><input type="checkbox" id="auto_mode"/><span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span>Tự động hoàn toàn (bỏ qua bước duyệt kế hoạch)</span></label>
+      <label class="toggle-switch gap-3 text-sm"><input type="checkbox" id="watermark"/><span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span>Hiện tên kênh (watermark) góc trên trái</span></label>
+      <input id="channel_name" class="inp" placeholder="Tên kênh, vd @kenhcuatoi"/>
+    </div>
+  </section>
+
+  <!-- Thư mục -->
+  <section class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-1">📁 Thư mục</h2>
+    <p class="text-xs text-zinc-500 mb-4">Để tên ngắn (vd <code>nen_video</code>) là thư mục nằm trong thư mục tool. Có thể nhập đường dẫn đầy đủ,
+      vd <code>D:\Video\Gameplay</code>. Thư mục chưa có sẽ được tạo.</p>
+    <div class="space-y-3">
+      <div><label class="text-sm text-zinc-400">🎮 Video nền (gameplay)</label>
+        <div class="flex gap-2 mt-1"><input id="background_dir" class="inp font-mono text-xs"/>
+          <button class="btn btn-ghost text-xs shrink-0" onclick="openFolder('background')">📂 Mở</button></div></div>
+      <div><label class="text-sm text-zinc-400">😂 Meme (ảnh, GIF, video)</label>
+        <div class="flex gap-2 mt-1"><input id="meme_dir" class="inp font-mono text-xs"/>
+          <button class="btn btn-ghost text-xs shrink-0" onclick="openFolder('meme')">📂 Mở</button></div></div>
+      <div><label class="text-sm text-zinc-400">🎵 Nhạc nền</label>
+        <div class="flex gap-2 mt-1"><input id="music_dir" class="inp font-mono text-xs"/>
+          <button class="btn btn-ghost text-xs shrink-0" onclick="openFolder('music')">📂 Mở</button></div></div>
+      <div><label class="text-sm text-zinc-400">✅ Video đã duyệt</label>
+        <div class="flex gap-2 mt-1"><input id="approved_dir" class="inp font-mono text-xs"/>
+          <button class="btn btn-ghost text-xs shrink-0" onclick="openFolder('approved')">📂 Mở</button></div></div>
+    </div>
+  </section>
+
+  <!-- Threads -->
+  <section class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+    <h2 class="font-semibold mb-4">🔗 Lấy bài từ link Threads</h2>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div><label class="text-sm text-zinc-400">Số bình luận tối thiểu</label><input id="comment_min" type="number" min="1" max="10" class="inp mt-1"/></div>
+      <div><label class="text-sm text-zinc-400">Số bình luận tối đa</label><input id="comment_max" type="number" min="1" max="15" class="inp mt-1"/></div>
+    </div>
+    <div data-key="threads_cookie">
+      <label class="text-sm text-zinc-400">Cookie đăng nhập Threads (tùy chọn)</label>
+      <p class="text-xs text-red-300 bg-red-950/40 border border-red-800 rounded-lg p-2 my-2">⚠️ Cookie cho phép truy cập tài khoản của bạn.
+        Chỉ dùng trên máy cá nhân; Threads có thể khóa tài khoản dùng công cụ tự động — nên dùng tài khoản phụ.</p>
+    </div>
+  </section>
+</main>
+
+<div class="fixed bottom-0 inset-x-0 bg-zinc-950/95 border-t border-zinc-800 py-3">
+  <div class="max-w-3xl mx-auto px-4 flex justify-end gap-2">
+    <a href="/" class="btn btn-ghost">← Về trang tạo video</a>
+    <button id="btn-save" onclick="saveAll()" class="btn btn-primary px-8">💾 Lưu cài đặt</button>
+  </div>
+</div>
+
+<style>
+  .provider-opt span { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid #3f3f46;
+    border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .provider-opt small { font-weight: 400; font-size: 11px; color: #71717a; }
+  .provider-opt input:checked + span { border-color: #7c3aed; background: rgba(124,58,237,.12); }
+</style>
+
+<script src="/static/js/app.js"></script>
+<script>
+let cfg = {};
+let voices = [];
+const SECRETS = ['gemini_api_key', 'claude_api_key', 'openai_api_key', 'zai_api_key', 'openrouter_api_key', 'threads_cookie'];
+const cleared = new Set();
+
+// ── AI trên máy (Ollama) ──────────────────────────────────────────────────
+document.querySelectorAll('input[name="llm_provider"]').forEach(r => r.addEventListener('change', onProviderChange));
+
+function onProviderChange() {
+  const v = document.querySelector('input[name="llm_provider"]:checked')?.value;
+  const box = document.getElementById('ollama-box');
+  box.classList.toggle('hidden', v !== 'ollama' && document.getElementById('fallback_provider')?.value !== 'ollama');
+  if (!box.classList.contains('hidden')) checkOllama();
+}
+
+async function checkOllama() {
+  const el = document.getElementById('ollama-status');
+  el.textContent = 'Đang kiểm tra Ollama…';
+  let st;
+  try { st = await (await fetch('/api/ollama/status')).json(); } catch (_) { st = { running: false }; }
+  const want = (document.getElementById('ollama_model').value.trim() || 'qwen3.5:4b');
+  if (!st.running) {
+    el.innerHTML = `<span class="text-red-400">❌ Chưa thấy Ollama chạy tại ${escapeHtml(st.url || 'localhost:11434')}.</span>
+      Cài từ <a class="underline" href="https://ollama.com/download" target="_blank">ollama.com/download</a>, mở ứng dụng rồi bấm “Kiểm tra lại”.`;
+    document.getElementById('ollama-reco').innerHTML = '';
+    return;
+  }
+  const names = (st.models || []).map(m => m.name);
+  const has = (n) => names.includes(n) || names.includes(n + ':latest');
+  document.getElementById('ollama-models').innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
+  el.innerHTML = `<span class="text-green-400">✅ Ollama đang chạy</span> (phiên bản ${escapeHtml(st.version || '?')}) · ` +
+    (names.length ? `đã có ${names.length} model: <code>${names.map(escapeHtml).join(', ')}</code>` : 'chưa có model nào') +
+    (has(want) ? '' : ` · <span class="text-amber-400">chưa có <b>${escapeHtml(want)}</b> — bấm “Tải” bên dưới.</span>`);
+  document.getElementById('ollama-reco').innerHTML = (st.recommended || []).map(r => `
+    <div class="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+      <div class="flex-1 min-w-0"><code class="text-sm">${escapeHtml(r.model)}</code> <span class="text-xs text-zinc-500">· ${escapeHtml(r.size)}</span>
+        <p class="text-xs text-zinc-500">${escapeHtml(r.note)}</p></div>
+      ${has(r.model)
+        ? `<button class="btn btn-ghost text-xs" onclick="useOllamaModel(${escapeHtml(JSON.stringify(r.model))})">Dùng</button><span class="text-xs text-green-400">✓ đã tải</span>`
+        : `<button class="btn btn-primary text-xs" onclick="pullOllama(this, ${escapeHtml(JSON.stringify(r.model))})">⬇ Tải</button>`}
+    </div>`).join('');
+}
+
+function useOllamaModel(name) {
+  document.getElementById('ollama_model').value = name;
+  showToast(`Đã chọn ${name}. Bấm “Lưu cài đặt”.`, 'info');
+}
+
+async function pullOllama(btn, name) {
+  const box = document.getElementById('pull-box'), bar = document.getElementById('pull-bar'), lab = document.getElementById('pull-label');
+  box.classList.remove('hidden'); btn.disabled = true;
+  bar.style.width = '0%'; lab.textContent = `Đang tải ${name}… (vài GB, có thể mất vài phút)`;
+  try {
+    const r = await fetch('/api/ollama/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: name }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Lỗi ${r.status}`);
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '', last = null;
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const ln of lines) {
+        if (!ln.trim()) continue;
+        const ev = JSON.parse(ln); last = ev;
+        if (ev.status === 'error') throw new Error(ev.message);
+        if (ev.percent != null) bar.style.width = ev.percent + '%';
+        lab.textContent = `${name}: ${ev.status}${ev.percent != null ? ' · ' + ev.percent + '%' : ''}`;
+      }
+    }
+    if (last?.status !== 'success') throw new Error('Tải bị gián đoạn.');
+    bar.style.width = '100%'; lab.textContent = `✅ Đã tải xong ${name}.`;
+    document.getElementById('ollama_model').value = name;
+    showToast(`Đã tải ${name}. Bấm “Lưu & kiểm tra kết nối AI”.`, 'success');
+    checkOllama();
+  } catch (e) {
+    lab.textContent = '❌ ' + e.message; showToast('Tải model lỗi: ' + e.message, 'error');
+  } finally { btn.disabled = false; }
+}
+
+function fmtSpeed(v) { v = parseInt(v, 10); return (v >= 0 ? '+' : '') + v + '%'; }
+
+function secretField(key) {
+  const wrap = document.querySelector(`[data-key="${key}"]`);
+  const isCookie = key === 'threads_cookie';
+  const saved = cfg[`${key}_set`];
+  const box = document.createElement('div');
+  box.className = 'flex gap-2 mt-1';
+  box.innerHTML = `
+    ${isCookie ? `<textarea id="${key}" rows="2" class="inp font-mono text-xs"></textarea>`
+               : `<input id="${key}" type="password" autocomplete="off" class="inp font-mono"/>`}
+    ${saved ? `<button class="btn btn-danger text-xs shrink-0" onclick="clearSecret('${key}')">Xóa</button>` : ''}`;
+  wrap.querySelector('.flex')?.remove();
+  wrap.appendChild(box);
+  document.getElementById(key).placeholder = saved ? `Đã lưu (${cfg[key]}) — nhập để thay` : (isCookie ? 'sessionid=...; csrftoken=...' : 'Dán key vào đây');
+}
+
+function clearSecret(key) {
+  cleared.add(key);
+  cfg[`${key}_set`] = false;
+  secretField(key);
+  showToast('Bấm “Lưu cài đặt” để xóa hẳn.', 'info');
+}
+
+function fillVoices() {
+  const engine = document.getElementById('tts_engine').value;
+  const sel = document.getElementById('tts_voice');
+  sel.innerHTML = voices.filter(v => v.engine === engine).map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+  if ([...sel.options].some(o => o.value === cfg.tts_voice)) sel.value = cfg.tts_voice;
+}
+
+async function load() {
+  const d = await apiCall('/api/settings');
+  if (!d) return;
+  cfg = d.settings;
+  voices = d.voices;
+  (document.querySelector(`input[name="llm_provider"][value="${cfg.llm_provider}"]`) ||
+   document.querySelector('input[name="llm_provider"][value="gemini"]')).checked = true;
+  setTimeout(onProviderChange, 0);
+  SECRETS.forEach(secretField);
+  for (const k of ['llm_model', 'openai_base_url', 'fallback_provider', 'fallback_model', 'ollama_url', 'ollama_model', 'ollama_vision_model', 'tts_engine', 'max_duration', 'meme_density', 'transition_text', 'channel_name', 'comment_min', 'comment_max',
+                   'background_dir', 'meme_dir', 'approved_dir', 'music_dir', 'music_mode'])
+    document.getElementById(k).value = cfg[k] ?? '';
+  for (const k of ['hide_author', 'show_transition', 'auto_mode', 'watermark', 'meme_video_audio']) document.getElementById(k).checked = !!cfg[k];
+  fillVoices();
+  const sp = parseInt(String(cfg.tts_speed).replace('%', ''), 10) || 0;
+  document.getElementById('tts_speed').value = sp;
+  document.getElementById('speed-label').textContent = fmtSpeed(sp);
+  document.getElementById('music_volume').value = Math.round(cfg.music_volume * 100);
+  document.getElementById('music-label').textContent = Math.round(cfg.music_volume * 100) + '%';
+  document.getElementById('sfx_volume').value = Math.round(cfg.sfx_volume * 100);
+  document.getElementById('sfx-label').textContent = Math.round(cfg.sfx_volume * 100) + '%';
+}
+
+function collect() {
+  const s = {
+    llm_provider: document.querySelector('input[name="llm_provider"]:checked')?.value || 'gemini',
+    llm_model: document.getElementById('llm_model').value.trim(),
+    openai_base_url: document.getElementById('openai_base_url').value.trim(),
+    fallback_provider: document.getElementById('fallback_provider').value,
+    fallback_model: document.getElementById('fallback_model').value.trim(),
+    ollama_url: document.getElementById('ollama_url').value.trim() || 'http://localhost:11434',
+    ollama_model: document.getElementById('ollama_model').value.trim() || 'qwen3.5:4b',
+    ollama_vision_model: document.getElementById('ollama_vision_model').value.trim(),
+    tts_engine: document.getElementById('tts_engine').value,
+    tts_voice: document.getElementById('tts_voice').value,
+    tts_speed: fmtSpeed(document.getElementById('tts_speed').value),
+    music_volume: parseInt(document.getElementById('music_volume').value, 10) / 100,
+    sfx_volume: parseInt(document.getElementById('sfx_volume').value, 10) / 100,
+    max_duration: parseInt(document.getElementById('max_duration').value, 10) || 90,
+    meme_density: document.getElementById('meme_density').value,
+    transition_text: document.getElementById('transition_text').value.trim(),
+    channel_name: document.getElementById('channel_name').value.trim(),
+    comment_min: parseInt(document.getElementById('comment_min').value, 10) || 3,
+    comment_max: parseInt(document.getElementById('comment_max').value, 10) || 6,
+    background_dir: document.getElementById('background_dir').value.trim(),
+    meme_dir: document.getElementById('meme_dir').value.trim(),
+    approved_dir: document.getElementById('approved_dir').value.trim(),
+    music_dir: document.getElementById('music_dir').value.trim(),
+    music_mode: document.getElementById('music_mode').value,
+  };
+  for (const k of ['hide_author', 'show_transition', 'auto_mode', 'watermark', 'meme_video_audio']) s[k] = document.getElementById(k).checked;
+  for (const k of SECRETS) {
+    const v = document.getElementById(k).value.trim();
+    if (v) s[k] = v;
+    if (cleared.has(k)) s[`${k}_clear`] = true;
+  }
+  return s;
+}
+
+async function saveAll(quiet = false) {
+  const done = busy(document.getElementById('btn-save'), 'Đang lưu…');
+  try {
+    const d = await apiCall('/api/settings', 'POST', { settings: collect() });
+    if (!d) return false;
+    cfg = d.settings;
+    cleared.clear();
+    SECRETS.forEach(secretField);
+    if (!quiet) showToast('Đã lưu cài đặt.', 'success');
+    return true;
+  } finally { done(); }
+}
+
+async function testLLM(btn) {
+  if (!await saveAll(true)) return;
+  const out = document.getElementById('llm-test');
+  const done = busy(btn, 'Đang gọi AI…');
+  try {
+    const d = await apiCall('/api/settings/test-llm', 'POST');
+    if (!d) return;
+    out.className = 'text-sm ' + (d.ok ? 'text-green-400' : 'text-red-400');
+    out.textContent = (d.ok ? '✓ ' : '✕ ') + d.message;
+  } finally { done(); }
+}
+
+async function openFolder(kind) {
+  if (!await saveAll(true)) return;
+  const d = await apiCall(`/api/open-folder/${kind}`, 'POST');
+  if (d) showToast(`Thư mục: ${d.path}`, 'info');
+}
+
+let audio = null;
+async function testTTS(btn) {
+  const done = busy(btn, 'Đang tạo…');
+  try {
+    const d = await apiCall('/api/settings/test-tts', 'POST', {
+      text: document.getElementById('tts-text').value,
+      tts_engine: document.getElementById('tts_engine').value,
+      tts_voice: document.getElementById('tts_voice').value,
+      tts_speed: fmtSpeed(document.getElementById('tts_speed').value),
+    });
+    if (!d) return;
+    if (audio) audio.pause();
+    audio = new Audio(d.audio_url);
+    audio.play();
+  } finally { done(); }
+}
+
+load();
+</script>
+</body>
+</html>

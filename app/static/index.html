@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="vi" class="bg-black">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tạo video Threads</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: '#7C3AED', 'brand-light': '#A78BFA' } } } }</script>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col">
+<div id="toast-container"></div>
+<header id="app-header"></header>
+
+<!-- Thanh bước -->
+<div class="border-b border-zinc-800 bg-zinc-950 py-3">
+  <div class="max-w-4xl mx-auto px-4 flex items-center gap-4">
+    <div class="step-bar flex-1 justify-between gap-2">
+      <div class="step-item active" id="step-1"><div class="step-circle">1</div><span class="step-label">Nguồn</span></div>
+      <div class="step-item" id="step-2"><div class="step-circle">2</div><span class="step-label">Thẻ</span></div>
+      <div class="step-item" id="step-3"><div class="step-circle">3</div><span class="step-label">Duyệt</span></div>
+      <div class="step-item" id="step-4"><div class="step-circle">4</div><span class="step-label">Render</span></div>
+      <div class="step-item" id="step-5"><div class="step-circle">✓</div><span class="step-label">Kết quả</span></div>
+    </div>
+    <button id="btn-new-project" onclick="newProject()" class="btn btn-ghost text-xs shrink-0 hidden"
+            title="Bắt đầu video mới. Dự án hiện tại vẫn được lưu trong thư mục projects.">＋ Dự án mới</button>
+    <label class="toggle-switch gap-2 text-xs text-zinc-400 shrink-0" title="Bỏ qua bước duyệt: bấm một nút là ra video">
+      <input type="checkbox" id="auto-mode" onchange="toggleAutoMode(this.checked)"/>
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      <span>Tự động hoàn toàn</span>
+    </label>
+  </div>
+</div>
+
+<main class="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
+  <div id="status-banner" class="space-y-2 mb-4"></div>
+
+  <!-- ═══ BƯỚC 1: Nguồn ═══ -->
+  <section id="panel-1" class="slide-in-up">
+    <h2 class="text-xl font-bold mb-4">Chọn nguồn nội dung</h2>
+    <div class="flex rounded-xl bg-zinc-900 p-1 mb-5 gap-1">
+      <button id="tab-upload" onclick="switchSourceTab('upload')" class="flex-1 py-2 rounded-lg text-sm font-medium transition">📷 Upload ảnh chụp</button>
+      <button id="tab-threads" onclick="switchSourceTab('threads')" class="flex-1 py-2 rounded-lg text-sm font-medium transition">🔗 Dán link Threads</button>
+    </div>
+
+    <div id="source-upload">
+      <div id="drop-zone" class="drop-zone p-10 text-center mb-4 border-2 border-dashed border-zinc-700 rounded-2xl cursor-pointer"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon text-5xl mb-3">🖼️</div>
+        <p class="text-zinc-300 font-medium mb-1">Kéo & thả ảnh chụp bài Threads vào đây</p>
+        <p class="text-zinc-500 text-sm">hoặc bấm để chọn · PNG, JPG, WebP · một ảnh có thể chứa nhiều thẻ</p>
+        <input id="file-input" type="file" accept="image/*" multiple class="hidden" onchange="addFiles([...this.files]); this.value=''"/>
+      </div>
+      <div id="upload-preview" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-4"></div>
+      <button id="btn-upload" onclick="startUpload()" class="btn btn-primary w-full py-3">⚡ Cắt thẻ từ ảnh</button>
+    </div>
+
+    <div id="source-threads" class="hidden">
+      <label class="block text-sm text-zinc-400 mb-1">Link bài viết Threads</label>
+      <input id="threads-url" type="text" class="inp mb-3" placeholder="Dán link Threads: threads.com/@ten/post/... hoặc link chia sẻ threads.com/share/..."/>
+      <details class="mb-4">
+        <summary class="text-sm text-zinc-500 cursor-pointer hover:text-zinc-300">Cookie đăng nhập (tùy chọn — để lấy được nhiều bình luận hơn)</summary>
+        <div class="mt-3 bg-red-950/50 border border-red-800 rounded-xl p-3 mb-2 text-xs text-red-300 leading-relaxed">
+          ⚠️ <b>Rủi ro:</b> cookie cho phép truy cập tài khoản của bạn. Chỉ dùng trên máy cá nhân, không chia sẻ. Threads có thể khóa
+          tài khoản dùng công cụ tự động — nên dùng tài khoản phụ. Để trống thì dùng cookie đã lưu trong Cài đặt (nếu có).
+        </div>
+        <textarea id="threads-cookie" rows="2" class="inp font-mono text-xs" placeholder="sessionid=...; csrftoken=..."></textarea>
+      </details>
+      <button id="btn-threads" onclick="startThreads()" class="btn btn-primary w-full py-3">⬇ Lấy bài và bình luận</button>
+      <p class="text-xs text-zinc-500 mt-2">Không đăng nhập thì thường lấy được khoảng 20 bình luận đầu. Tool sẽ lọc ra 3–6 bình luận hay và che tên người bình luận.</p>
+    </div>
+
+    <div class="mt-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-sm">🎮 Video nền</h3>
+        <div class="flex gap-3 text-xs">
+          <button onclick="openFolder('background')" class="text-zinc-400 hover:text-white">📂 Mở thư mục nền</button>
+          <a href="/memes#backgrounds" class="text-zinc-400 hover:text-white">＋ Thêm video nền</a>
+        </div>
+      </div>
+      <div class="bg-chooser grid grid-cols-3 sm:grid-cols-5 gap-2"></div>
+    </div>
+    <div class="mt-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-sm">🎵 Nhạc nền</h3>
+        <div class="flex gap-3 text-xs">
+          <button onclick="openFolder('music')" class="text-zinc-400 hover:text-white">📂 Mở thư mục nhạc</button>
+          <a href="/memes#music" class="text-zinc-400 hover:text-white">＋ Thêm nhạc</a>
+        </div>
+      </div>
+      <div class="music-chooser flex flex-wrap gap-2"></div>
+    </div>
+  </section>
+
+  <!-- ═══ BƯỚC 2: Thẻ ═══ -->
+  <section id="panel-2" class="hidden">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xl font-bold">Các thẻ trong video</h2>
+      <button onclick="gotoStep(1)" class="text-sm text-zinc-500 hover:text-white">← Quay lại</button>
+    </div>
+    <p class="text-sm text-zinc-500 mb-4">Kéo ⠿ để đổi thứ tự. Sửa chữ nếu AI đọc sai — chỉ phần thân bài được đọc thành giọng.</p>
+    <div id="project-warnings" class="mb-3"></div>
+    <div id="cards-list" class="space-y-3 mb-4"></div>
+    <div id="source-images" class="mb-5"></div>
+    <div class="flex flex-wrap gap-2">
+      <button id="btn-ocr" onclick="runOCR(true)" class="btn btn-ghost">🔍 Đọc lại chữ bằng AI</button>
+      <button id="btn-plan" onclick="makePlan()" class="btn btn-primary flex-1 py-3">Lên kế hoạch (chia câu + chọn meme) →</button>
+    </div>
+  </section>
+
+  <!-- ═══ BƯỚC 3: Duyệt ═══ -->
+  <section id="panel-3" class="hidden">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xl font-bold">Duyệt kế hoạch</h2>
+      <button onclick="gotoStep(2)" class="text-sm text-zinc-500 hover:text-white">← Sửa thẻ</button>
+    </div>
+    <p class="text-sm text-zinc-500 mb-4">Sửa <b>chữ để đọc</b> (số, viết tắt đã được viết ra chữ), đổi meme hoặc chọn "Không". Bấm ▶ để nghe thử từng câu.</p>
+    <div id="plan-warning" class="mb-3"></div>
+    <div id="plan-body" class="space-y-4 mb-5"></div>
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-sm">🎮 Video nền cho video này</h3>
+        <button onclick="openFolder('background')" class="text-xs text-zinc-400 hover:text-white">📂 Mở thư mục nền</button>
+      </div>
+      <div class="bg-chooser grid grid-cols-3 sm:grid-cols-5 gap-2"></div>
+    </div>
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-sm">🎵 Nhạc nền cho video này</h3>
+        <button onclick="openFolder('music')" class="text-xs text-zinc-400 hover:text-white">📂 Mở thư mục nhạc</button>
+      </div>
+      <div class="music-chooser flex flex-wrap gap-2"></div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="makePlan(true)" class="btn btn-ghost">↻ Lên kế hoạch lại</button>
+      <button id="btn-render" onclick="saveAndRender()" class="btn btn-primary flex-1 py-3">🎬 Render video</button>
+    </div>
+  </section>
+
+  <!-- ═══ BƯỚC 4: Render ═══ -->
+  <section id="panel-4" class="hidden">
+    <h2 class="text-xl font-bold mb-2">Đang dựng video</h2>
+    <p id="render-msg" class="text-zinc-400 text-sm mb-4">Đang chuẩn bị…</p>
+    <div class="w-full bg-zinc-800 rounded-full h-3 mb-1 overflow-hidden">
+      <div id="render-bar" class="progress-shimmer h-3 rounded-full transition-all duration-300" style="width:0%"></div>
+    </div>
+    <div class="flex justify-between text-xs text-zinc-500 mb-4">
+      <span id="render-pct">0%</span><span id="render-eta"></span>
+    </div>
+    <div id="render-log" class="log-box"></div>
+  </section>
+
+  <!-- ═══ BƯỚC 5: Kết quả ═══ -->
+  <section id="panel-5" class="hidden">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xl">✓</div>
+      <div class="flex-1"><h2 class="text-xl font-bold">Video đã sẵn sàng</h2><p id="result-info" class="text-zinc-500 text-sm"></p></div>
+      <button onclick="newProject()" class="btn btn-primary shrink-0">🎬 Làm video mới</button>
+    </div>
+    <div id="result-videos" class="grid sm:grid-cols-2 gap-4 mb-5"></div>
+    <div class="space-y-3 mb-5">
+      <div class="bg-zinc-900 rounded-xl p-4">
+        <div class="flex justify-between mb-1"><p class="text-xs font-semibold text-zinc-400 uppercase">Gợi ý tiêu đề</p>
+          <button onclick="copyText('result-title')" class="text-xs text-brand-light">Copy</button></div>
+        <p id="result-title" class="text-sm"></p>
+      </div>
+      <div class="bg-zinc-900 rounded-xl p-4">
+        <div class="flex justify-between mb-1"><p class="text-xs font-semibold text-zinc-400 uppercase">Caption</p>
+          <button onclick="copyText('result-caption', true)" class="text-xs text-brand-light">Copy kèm hashtag</button></div>
+        <p id="result-caption" class="text-sm whitespace-pre-line"></p>
+        <p id="result-hashtags" class="text-sm text-brand-light mt-2"></p>
+      </div>
+    </div>
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-5 flex flex-wrap items-center gap-3">
+      <button id="btn-approve" onclick="approveVideo()" class="btn btn-primary">✅ Duyệt & lưu vào “video đã duyệt”</button>
+      <button onclick="openFolder('approved')" class="btn btn-ghost">📂 Mở thư mục video đã duyệt</button>
+      <button id="btn-next-video" onclick="newProject()" class="btn btn-primary hidden">🎬 Làm video tiếp theo →</button>
+      <p id="approve-info" class="text-xs text-zinc-400 w-full"></p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="gotoStep(3)" class="btn btn-ghost flex-1">✏️ Sửa kế hoạch & render lại</button>
+      <button onclick="resetWorkflow()" class="btn btn-primary flex-1">🎬 Làm video mới</button>
+    </div>
+  </section>
+</main>
+
+<!-- Popup chọn meme -->
+<audio id="music-preview" class="hidden"></audio>
+<div id="meme-picker" class="hidden fixed z-50 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-2 w-80">
+  <input id="meme-search" class="inp mb-2 text-xs" placeholder="Tìm theo tên / nhãn…" oninput="renderMemePicker()"/>
+  <div id="meme-picker-list" class="meme-picker grid grid-cols-3 gap-2"></div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script src="/static/js/crop.js"></script>
+<script>
+const state = {
+  projectId: localStorage.getItem('project_id'),
+  project: null,
+  plan: null,
+  files: [],
+  memes: [],
+  source: 'upload',
+  auto: false,
+  jobId: null,
+  pickerTarget: null,
+  backgrounds: [],
+  background: localStorage.getItem('bg_choice') || null,   // null = ngẫu nhiên
+  music: localStorage.getItem('music_choice') || null,     // null = ngẫu nhiên, '__none__' = không nhạc
+  musics: [],
+  musicPlaying: null,
+};
+
+// ── Bước ────────────────────────────────────────────────────────────────────
+function gotoStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`panel-${i}`).classList.toggle('hidden', i !== n);
+    const s = document.getElementById(`step-${i}`);
+    s.classList.toggle('active', i === n);
+    s.classList.toggle('done', i < n);
+  }
+  document.getElementById(`panel-${n}`).classList.add('slide-in-up');
+  state.step = n;
+  document.getElementById('btn-new-project').classList.toggle('hidden', n === 1 && !state.projectId);
+  if (n === 2) renderCards();
+  if (n === 3) renderPlan();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchSourceTab(mode) {
+  state.source = mode;
+  for (const [m, tab, box] of [['upload', 'tab-upload', 'source-upload'], ['threads', 'tab-threads', 'source-threads']]) {
+    document.getElementById(tab).className = 'flex-1 py-2 rounded-lg text-sm font-medium transition ' +
+      (m === mode ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white');
+    document.getElementById(box).classList.toggle('hidden', m !== mode);
+  }
+}
+
+async function toggleAutoMode(on) {
+  state.auto = on;
+  await apiCall('/api/settings', 'POST', { settings: { auto_mode: on } }, { silent: true });
+  showToast(on ? 'Tự động hoàn toàn: bấm nút ở bước 1 là ra video, bỏ qua bước duyệt.' : 'Đã tắt tự động — bạn sẽ duyệt kế hoạch trước khi render.', 'info');
+}
+
+// ── Cảnh báo trạng thái ─────────────────────────────────────────────────────
+async function loadStatus() {
+  const st = await apiCall('/api/status', 'GET', null, { silent: true });
+  if (!st) return;
+  state.auto = st.auto_mode;
+  document.getElementById('auto-mode').checked = st.auto_mode;
+  const box = document.getElementById('status-banner');
+  const items = [];
+  if (!st.ffmpeg) items.push(['error', 'Chưa tìm thấy FFmpeg — không render được. Xem hướng dẫn cài trong README.']);
+  if (!st.llm_ready) items.push(['warning', 'Chưa nhập API key AI: không đọc được chữ từ ảnh (bạn vẫn có thể tự gõ chữ), meme được chọn ngẫu nhiên. <a href="/settings" class="underline">Mở Cài đặt</a>']);
+  if (!st.backgrounds) items.push(['info', 'Chưa có video nền — chép video gameplay vào thư mục <b>nen_video</b> (bấm “📂 Mở thư mục nền” bên dưới) hoặc <a href="/memes#backgrounds" class="underline">tải lên trong Thư viện</a>. Chưa có thì video dùng nền màu trơn.']);
+  if (!st.memes) items.push(['info', 'Thư viện meme đang trống. <a href="/memes" class="underline">Thêm meme</a>']);
+  const color = { error: 'border-red-700 bg-red-950/40 text-red-200', warning: 'border-yellow-700 bg-yellow-950/30 text-yellow-200', info: 'border-zinc-700 bg-zinc-900 text-zinc-300' };
+  box.innerHTML = items.map(([t, m]) => `<div class="text-xs border rounded-lg px-3 py-2 ${color[t]}">${m}</div>`).join('');
+}
+
+// ── Bước 1: upload ──────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+}
+
+function addFiles(files) {
+  state.files.push(...files);
+  renderUploadPreview();
+}
+
+function renderUploadPreview() {
+  const grid = document.getElementById('upload-preview');
+  grid.innerHTML = state.files.map((f, i) => `
+    <div class="relative group rounded-lg overflow-hidden bg-zinc-900 aspect-[9/16]">
+      <img src="${URL.createObjectURL(f)}" class="w-full h-full object-cover"/>
+      <span class="absolute bottom-1 left-1 text-[10px] bg-black/70 px-1 rounded">${i + 1}</span>
+      <button onclick="state.files.splice(${i},1); renderUploadPreview()" class="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full text-xs text-red-400">✕</button>
+    </div>`).join('');
+}
+
+async function ensureProject(fresh = false) {
+  if (state.projectId && !fresh) return state.projectId;
+  const p = await apiCall('/api/projects', 'POST');
+  if (!p) return null;
+  state.projectId = p.id;
+  state.project = p;
+  state.plan = null;
+  localStorage.setItem('project_id', p.id);
+  return p.id;
+}
+
+async function startUpload() {
+  if (!state.files.length) return showToast('Hãy chọn ít nhất 1 ảnh.', 'error');
+  const done = busy(document.getElementById('btn-upload'), 'Đang cắt thẻ…');
+  try {
+    const pid = await ensureProject(true);
+    if (!pid) return;
+    const fd = new FormData();
+    state.files.forEach(f => fd.append('files', f, f.name));
+    const p = await apiCall(`/api/projects/${pid}/images`, 'POST', fd);
+    if (!p) return;
+    state.project = p;
+    state.files = [];
+    renderUploadPreview();
+    showToast(`Đã cắt được ${p.cards.length} thẻ.`, 'success');
+    if (await hasLLM()) await runOCR(false);
+    if (state.auto) return autoContinue();
+    gotoStep(2);
+  } finally { done(); }
+}
+
+async function startThreads() {
+  const url = document.getElementById('threads-url').value.trim();
+  if (!url) return showToast('Hãy dán link bài Threads.', 'error');
+  const done = busy(document.getElementById('btn-threads'), 'Đang mở Threads (30–60 giây)…');
+  try {
+    const pid = await ensureProject(true);
+    if (!pid) return;
+    const p = await apiCall(`/api/projects/${pid}/threads`, 'POST', { url, cookie: document.getElementById('threads-cookie').value });
+    if (!p || state.projectId !== pid) return;   // đã sang dự án khác trong lúc chờ → bỏ kết quả cũ
+    state.project = p;
+    const nPost = p.cards.filter(c => c.kind === 'post').length;
+    const nCmt = p.cards.length - nPost;
+    showToast(`Đã lấy ${nPost} phần bài viết và chọn ${nCmt} bình luận` +
+      (p.fetched ? ` (từ ${p.fetched.comments_total} bình luận)` : '') + '.', 'success');
+    if (state.auto) return autoContinue();
+    gotoStep(2);
+  } finally { done(); }
+}
+
+async function hasLLM() {
+  const st = await apiCall('/api/status', 'GET', null, { silent: true });
+  return !!st?.llm_ready;
+}
+
+async function autoContinue() {
+  const pid = state.projectId;
+  const ok = await makePlan(false, true);
+  if (ok && state.projectId === pid) await startRender();
+}
+
+// ── Bước 2: thẻ ─────────────────────────────────────────────────────────────
+async function runOCR(force) {
+  const btn = document.getElementById('btn-ocr');
+  const done = busy(btn, 'AI đang đọc chữ…');
+  const toast = force ? null : showToast('AI đang đọc chữ từng thẻ…', 'info', 3000);
+  try {
+    const p = await apiCall(`/api/projects/${state.projectId}/ocr${force ? '?force=true' : ''}`, 'POST');
+    if (p) { state.project = p; renderCards(); }
+    return !!p;
+  } finally { done(); }
+}
+
+function renderCards() {
+  const p = state.project;
+  const list = document.getElementById('cards-list');
+  const warn = document.getElementById('project-warnings');
+  warn.innerHTML = (p?.warnings || []).map(w => `<div class="text-xs border border-yellow-700 bg-yellow-950/30 text-yellow-200 rounded-lg px-3 py-2 mb-1">${escapeHtml(w)}</div>`).join('');
+  if (!p || !p.cards.length) {
+    list.innerHTML = '<p class="text-center text-zinc-500 py-8">Chưa có thẻ nào.</p>';
+    document.getElementById('source-images').innerHTML = '';
+    return;
+  }
+  document.getElementById('btn-ocr').classList.toggle('hidden', p.source !== 'upload');
+  list.innerHTML = p.cards.map((c, i) => `
+    <div class="card-item flex gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-3" data-id="${c.card_id}">
+      <div class="drag-handle cursor-grab text-zinc-600 hover:text-zinc-300 select-none pt-1" title="Kéo để đổi thứ tự">⠿</div>
+      <div class="w-40 shrink-0">
+        <img src="${c.image_url}" class="card-thumb w-full rounded-lg border border-zinc-800"/>
+        <div class="flex gap-1 mt-2">
+          ${c.source_url ? `<button onclick="recrop('${c.card_id}')" class="btn btn-ghost text-xs px-2 py-1 flex-1">✂ Cắt lại</button>` : ''}
+          <button onclick="deleteCard('${c.card_id}')" class="btn btn-danger text-xs px-2 py-1">Xóa</button>
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-2 text-xs">
+          <span class="bg-zinc-800 rounded px-1.5 py-0.5 text-zinc-400">#${i + 1}</span>
+          <select onchange="editCard('${c.card_id}', {kind: this.value})" class="bg-zinc-800 rounded px-2 py-1">
+            <option value="post" ${c.kind === 'post' ? 'selected' : ''}>Bài gốc</option>
+            <option value="comment" ${c.kind === 'comment' ? 'selected' : ''}>Bình luận</option>
+          </select>
+          ${c.part_index && c.part_total ? `<span class="text-zinc-500">phần ${c.part_index}/${c.part_total}</span>` : ''}
+          ${c.masked ? '<span class="text-green-400">✓ đã che tên</span>' : ''}
+          ${c.display_name ? `<span class="text-zinc-500">${escapeHtml(c.display_name)}</span>` : ''}
+        </div>
+        <textarea rows="5" class="inp text-sm" placeholder="${c.source_url ? 'Chưa có chữ — bấm “Đọc lại chữ bằng AI” hoặc tự gõ thân bài vào đây' : ''}"
+          onchange="editCard('${c.card_id}', {body: this.value})">${escapeHtml(c.body || '')}</textarea>
+        ${(c.uncertain_words || []).length ? `<p class="text-xs text-yellow-400 mt-1">AI chưa chắc các từ: ${c.uncertain_words.map(escapeHtml).join(', ')}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  if (window.Sortable && !list._sortable) {
+    list._sortable = Sortable.create(list, {
+      handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost',
+      onEnd: async () => {
+        const order = [...list.children].map(el => el.dataset.id);
+        const p2 = await apiCall(`/api/projects/${state.projectId}/cards`, 'POST', { order });
+        if (p2) { state.project = p2; renderCards(); }
+      },
+    });
+  }
+
+  const imgs = (p.images || []);
+  document.getElementById('source-images').innerHTML = imgs.length ? `
+    <p class="text-xs text-zinc-500 mb-2">Thiếu thẻ? Bấm vào ảnh gốc để kéo khung cắt thêm:</p>
+    <div class="flex gap-2 flex-wrap">${imgs.map(im => `
+      <img src="${im.url}" title="${escapeHtml(im.name)}" onclick="manualCard('${im.file}', '${im.url}')"
+           class="h-24 rounded border border-zinc-700 hover:border-brand cursor-crosshair"/>`).join('')}</div>` : '';
+}
+
+async function editCard(cardId, fields) {
+  const p = await apiCall(`/api/projects/${state.projectId}/cards`, 'POST', { edits: { [cardId]: fields } });
+  if (p) { state.project = p; if ('kind' in fields || !p.cards.find(c => c.card_id === cardId)?.source_url) renderCards(); }
+}
+
+async function deleteCard(cardId) {
+  if (!confirm('Xóa thẻ này khỏi video?')) return;
+  const p = await apiCall(`/api/projects/${state.projectId}/cards`, 'POST', { delete: [cardId] });
+  if (p) { state.project = p; renderCards(); }
+}
+
+function recrop(cardId) {
+  const c = state.project.cards.find(x => x.card_id === cardId);
+  CropTool.open(c.source_url, async (x1, y1, x2, y2) => {
+    const p = await apiCall(`/api/projects/${state.projectId}/cards/${cardId}/crop`, 'POST', { box: [x1, y1, x2, y2] });
+    if (!p) return;
+    state.project = p;
+    renderCards();
+    showToast('Đã cắt lại thẻ.', 'success');
+    if (await hasLLM()) runOCR(false);
+  });
+}
+
+function manualCard(file, url) {
+  CropTool.open(url, async (x1, y1, x2, y2) => {
+    const p = await apiCall(`/api/projects/${state.projectId}/cards/manual`, 'POST', { box: [x1, y1, x2, y2], source_image: file });
+    if (!p) return;
+    state.project = p;
+    renderCards();
+    if (await hasLLM()) runOCR(false);
+  });
+}
+
+async function makePlan(again = false, silent = false) {
+  const btn = document.getElementById('btn-plan');
+  const done = busy(btn, 'AI đang chia câu và chọn meme…');
+  const pid = state.projectId;
+  try {
+    const p = state.project;
+    if (p && p.source === 'upload' && p.cards.some(c => c.source_url && !c.ocr_done && !(c.body || '').trim()) && await hasLLM()) {
+      if (!await runOCR(false)) return false;
+    }
+    const res = await apiCall(`/api/projects/${pid}/plan`, 'POST');
+    // AI local chạy lâu: nếu người dùng đã sang dự án khác thì KHÔNG gắn kế hoạch cũ vào dự án mới
+    if (!res || state.projectId !== pid) return false;
+    state.plan = res.plan;
+    await loadMemes();
+    document.getElementById('plan-warning').innerHTML = res.warning
+      ? `<div class="text-xs border border-yellow-700 bg-yellow-950/30 text-yellow-200 rounded-lg px-3 py-2">${escapeHtml(res.warning)}</div>` : '';
+    if (!silent) gotoStep(3);
+    return true;
+  } finally { done(); }
+}
+
+// ── Bước 3: duyệt kế hoạch ──────────────────────────────────────────────────
+async function loadMemes() {
+  const d = await apiCall('/api/memes', 'GET', null, { silent: true });
+  state.memes = d?.memes || [];
+}
+
+function memeUrl(file) { return `/api/media/meme/${encodeURIComponent(file)}`; }
+function memeThumb(file) { return `/api/thumb/meme/${encodeURIComponent(file)}`; }
+function isVideoFile(f) { return /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(f || ''); }
+function memeImg(file, cls = '') {
+  return `<span class="relative inline-block ${cls}"><img src="${isVideoFile(file) ? memeThumb(file) : memeUrl(file)}" class="w-full h-full object-contain"/>` +
+    (isVideoFile(file) ? '<span class="absolute bottom-0 right-0 text-[9px] bg-black/70 px-1 rounded">▶</span>' : '') + '</span>';
+}
+
+function renderPlan() {
+  const body = document.getElementById('plan-body');
+  const plan = state.plan;
+  if (!plan) { body.innerHTML = '<p class="text-zinc-500">Chưa có kế hoạch.</p>'; return; }
+  const cardsById = Object.fromEntries((state.project?.cards || []).map(c => [c.card_id, c]));
+  const firstComment = plan.cards.findIndex(c => c.kind === 'comment');
+  let html = '';
+  if (plan.title_suggestion || (plan.hashtags || []).length) {
+    html += `<div class="bg-zinc-900 rounded-xl p-3 text-sm"><span class="text-zinc-500">Tiêu đề gợi ý:</span> ${escapeHtml(plan.title_suggestion || '')}
+      <span class="text-brand-light ml-2">${(plan.hashtags || []).map(escapeHtml).join(' ')}</span></div>`;
+  }
+  plan.cards.forEach((card, ci) => {
+    if (ci === firstComment && plan.transition_before_comments !== null && plan.transition_before_comments !== undefined) {
+      html += `<div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center gap-3">
+        <span class="text-xs text-zinc-500 shrink-0">Câu chuyển cảnh</span>
+        <input class="inp text-sm" value="${escapeHtml(plan.transition_before_comments)}" onchange="state.plan.transition_before_comments = this.value"/>
+        <button class="btn btn-ghost text-xs px-2" onclick="previewText(this, state.plan.transition_before_comments)">▶</button></div>`;
+    }
+    const meta = cardsById[card.card_id] || {};
+    html += `<div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 p-3 border-b border-zinc-800">
+        <img src="${meta.image_url || ''}" class="h-14 rounded"/>
+        <span class="text-sm font-semibold">${card.kind === 'comment' ? 'Bình luận' : 'Bài gốc'} · ${card.card_id}</span>
+      </div>
+      <table class="plan-table w-full text-sm"><tbody>
+      ${card.sentences.map((s, si) => `
+        <tr class="border-b border-zinc-800/60 last:border-0">
+          <td class="p-2 w-[34%] text-zinc-400 text-xs leading-relaxed">${escapeHtml(s.display_text)}
+            <div class="mt-1"><span class="text-[10px] border border-zinc-700 rounded-full px-1.5">${escapeHtml(s.emotion || '')}</span></div></td>
+          <td class="p-2"><textarea class="inp text-sm" rows="2" title="Chữ để máy đọc"
+              onchange="state.plan.cards[${ci}].sentences[${si}].speak_text = this.value">${escapeHtml(s.speak_text)}</textarea>
+            ${s.meme_reason ? `<p class="text-[11px] text-zinc-500 mt-1">💡 ${escapeHtml(s.meme_reason)}</p>` : ''}</td>
+          <td class="p-2 w-28">
+            <button class="meme-select-btn flex items-center gap-1 text-xs w-full bg-zinc-800 rounded-lg p-1 hover:ring-1 hover:ring-brand"
+                    onclick="openMemePicker(event, ${ci}, ${si})">
+              ${s.meme ? `${memeImg(s.meme, 'w-10 h-10 shrink-0')}<span class="truncate">${escapeHtml(memeName(s.meme))}</span>`
+                       : '<span class="text-zinc-500 px-2 py-3">Không meme</span>'}
+            </button></td>
+          <td class="p-2 w-10"><button class="btn btn-ghost px-2 py-1" title="Nghe thử câu này"
+              onclick="previewText(this, state.plan.cards[${ci}].sentences[${si}].speak_text)">▶</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  });
+  body.innerHTML = html;
+}
+
+function memeName(file) { return state.memes.find(m => m.file === file)?.name || file; }
+
+function openMemePicker(ev, ci, si) {
+  ev.stopPropagation();
+  state.pickerTarget = [ci, si];
+  const picker = document.getElementById('meme-picker');
+  const r = ev.currentTarget.getBoundingClientRect();
+  picker.style.top = `${Math.min(window.innerHeight - 380, r.bottom + 4)}px`;
+  picker.style.left = `${Math.max(8, Math.min(window.innerWidth - 330, r.right - 320))}px`;
+  picker.classList.remove('hidden');
+  document.getElementById('meme-search').value = '';
+  renderMemePicker();
+  document.getElementById('meme-search').focus();
+}
+
+function renderMemePicker() {
+  const q = document.getElementById('meme-search').value.trim().toLowerCase();
+  const items = state.memes.filter(m => !q || (m.name + ' ' + (m.tags || []).join(' ') + ' ' + (m.description || '')).toLowerCase().includes(q));
+  const cur = state.pickerTarget ? state.plan.cards[state.pickerTarget[0]].sentences[state.pickerTarget[1]].meme : null;
+  document.getElementById('meme-picker-list').innerHTML =
+    `<button onclick="pickMeme(null)" class="aspect-square rounded-lg border ${!cur ? 'border-brand' : 'border-zinc-700'} text-xs text-zinc-400">Không</button>` +
+    items.map(m => `
+      <button onclick="pickMeme(${escapeHtml(JSON.stringify(m.file))})" title="${escapeHtml((m.tags || []).join(', '))}"
+        class="rounded-lg border ${cur === m.file ? 'border-brand' : 'border-zinc-700'} p-1 hover:border-brand-light">
+        <span class="block w-full aspect-square bg-zinc-800 rounded overflow-hidden">${memeImg(m.file, 'w-full h-full')}</span>
+        <span class="block text-[10px] truncate mt-0.5">${escapeHtml(m.name)}</span>
+      </button>`).join('') +
+    (state.memes.length ? '' : '<p class="col-span-3 text-xs text-zinc-500 p-2">Thư mục meme đang trống. <a class="underline" href="/memes">Thêm meme</a> hoặc <button class="underline" onclick="openFolder(\'meme\')">mở thư mục meme</button></p>');
+}
+
+function pickMeme(file) {
+  const [ci, si] = state.pickerTarget;
+  const s = state.plan.cards[ci].sentences[si];
+  s.meme = file;
+  s.meme_reason = file ? 'Bạn chọn' : null;
+  document.getElementById('meme-picker').classList.add('hidden');
+  renderPlan();
+}
+
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('meme-picker');
+  if (!picker.contains(e.target)) picker.classList.add('hidden');
+});
+
+let currentAudio = null;
+async function previewText(btn, text) {
+  if (!text || !text.trim()) return;
+  const done = busy(btn, '');
+  try {
+    const d = await apiCall(`/api/projects/${state.projectId}/tts-preview`, 'POST', { text });
+    if (!d) return;
+    if (currentAudio) currentAudio.pause();
+    currentAudio = new Audio(d.audio_url);
+    currentAudio.play().catch(() => showToast('Trình duyệt chặn phát âm thanh.', 'error'));
+  } finally { done(); }
+}
+
+async function saveAndRender() {
+  const done = busy(document.getElementById('btn-render'), 'Đang lưu…');
+  try {
+    const res = await apiCall(`/api/projects/${state.projectId}/plan`, 'PUT', { plan: state.plan });
+    if (!res) return;
+    state.plan = res.plan;
+    await startRender();
+  } finally { done(); }
+}
+
+// ── Bước 4: render ──────────────────────────────────────────────────────────
+async function startRender() {
+  const pid = state.projectId;
+  const bg = await apiCall(`/api/projects/${pid}/background`, 'POST', { file: state.background });
+  if (!bg) return;
+  const mu = await apiCall(`/api/projects/${pid}/music`, 'POST', { file: state.music });
+  if (!mu) return;
+  stopMusicPreview();
+  const r = await apiCall(`/api/projects/${pid}/render`, 'POST');
+  if (!r || state.projectId !== pid) return;
+  state.jobId = r.job_id;
+  document.getElementById('render-log').innerHTML = '';
+  setProgress({ progress: 0, message: 'Đang chuẩn bị…' });
+  gotoStep(4);
+  listenJob(r.job_id);
+}
+
+function setProgress(job) {
+  const pct = Math.round((job.progress || 0) * 100);
+  document.getElementById('render-bar').style.width = pct + '%';
+  document.getElementById('render-pct').textContent = pct + '%';
+  document.getElementById('render-msg').textContent = job.message || '';
+  document.getElementById('render-eta').textContent = job.eta ? `còn khoảng ${formatSeconds(job.eta)}` : '';
+  const log = document.getElementById('render-log');
+  if (job.message && log.lastChild?.dataset?.msg !== job.message) {
+    const div = document.createElement('div');
+    div.dataset.msg = job.message;
+    div.className = job.status === 'error' ? 'log-err' : job.status === 'done' ? 'log-ok' : '';
+    div.textContent = `[${new Date().toLocaleTimeString('vi')}] ${job.message}`;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+function listenJob(jobId) {
+  let finished = false;
+  const onData = (job) => {
+    if (state.jobId !== jobId) return;   // người dùng đã sang dự án mới → bỏ qua job cũ
+    setProgress(job);
+    if (job.status === 'done') { finished = true; showResult(job.result); }
+    if (job.status === 'error') {
+      finished = true;
+      showToast(job.message, 'error');
+      document.getElementById('render-msg').innerHTML = `<span class="text-red-400">${escapeHtml(job.message)}</span>
+        <span class="flex gap-2 mt-2"><button class="btn btn-primary text-xs" onclick="startRender()">↻ Thử lại</button>
+        <button class="btn btn-ghost text-xs" onclick="gotoStep(3)">← Quay lại sửa</button></span>
+        <span class="block text-xs text-zinc-500 mt-1">Các câu đã tạo giọng xong được giữ lại, thử lại sẽ nhanh hơn.</span>`;
+    }
+  };
+  if (window.EventSource) {
+    const es = new EventSource(`/api/jobs/${jobId}/events`);
+    es.onmessage = (e) => { const j = JSON.parse(e.data); onData(j); if (j.status !== 'running') es.close(); };
+    es.onerror = () => { es.close(); if (!finished) poll(); };
+  } else poll();
+
+  async function poll() {
+    while (!finished) {
+      const j = await apiCall(`/api/jobs/${jobId}`, 'GET', null, { silent: true });
+      if (!j) { await new Promise(r => setTimeout(r, 1500)); continue; }
+      onData(j);
+      if (j.status !== 'running') break;
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+}
+
+// ── Bước 5: kết quả ─────────────────────────────────────────────────────────
+function showResult(result) {
+  const outs = result.outputs || [];
+  document.getElementById('result-info').textContent =
+    `${formatSeconds(result.duration)}${outs.length > 1 ? ` · chia thành ${outs.length} phần` : ''}` +
+    (result.background ? ` · nền: ${result.background}` : ' · nền màu trơn') +
+    (result.music ? ` · nhạc: ${result.music}` : ' · không nhạc');
+  const ab = document.getElementById('btn-approve');
+  ab.disabled = false;
+  ab.innerHTML = '✅ Duyệt & lưu vào “video đã duyệt”';
+  document.getElementById('approve-info').textContent = '';
+  document.getElementById('btn-next-video').classList.add('hidden');
+  document.getElementById('result-videos').innerHTML = outs.map(o => `
+    <div class="flex flex-col items-center gap-2">
+      ${o.part ? `<p class="text-sm text-zinc-400 self-start">Part ${o.part}</p>` : ''}
+      <video class="video-player" controls preload="metadata" src="${o.url}"></video>
+      <a href="/api/projects/${state.projectId}/download/${encodeURIComponent(o.file)}" class="btn btn-ghost w-full max-w-[360px]">⬇ Tải xuống${o.part ? ` Part ${o.part}` : ''}</a>
+    </div>`).join('');
+  const cap = result.caption || {};
+  document.getElementById('result-title').textContent = cap.title || '';
+  document.getElementById('result-caption').textContent = cap.caption || '';
+  document.getElementById('result-hashtags').textContent = (cap.hashtags || []).join(' ');
+  gotoStep(5);
+}
+
+function copyText(id, withTags = false) {
+  let text = document.getElementById(id).textContent;
+  if (withTags) text += '\n\n' + document.getElementById('result-hashtags').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Đã copy!', 'success', 1500));
+}
+
+function newProject() {
+  const working = state.projectId && state.step !== 5 && (state.files.length || state.project?.cards?.length);
+  if (state.step === 4) {
+    if (!confirm('Video đang được dựng. Bắt đầu dự án mới?\nVideo cũ vẫn tiếp tục dựng và được lưu trong thư mục projects.')) return;
+  } else if (working) {
+    if (!confirm('Bắt đầu dự án mới?\nDự án đang làm vẫn được lưu trong thư mục projects.')) return;
+  }
+  resetWorkflow();
+  showToast('Đã tạo dự án mới. Upload ảnh hoặc dán link để bắt đầu.', 'success');
+}
+
+function resetWorkflow() {
+  localStorage.removeItem('project_id');
+  Object.assign(state, { projectId: null, project: null, plan: null, files: [], jobId: null, pickerTarget: null });
+  renderUploadPreview();
+  for (const id of ['threads-url', 'file-input']) { const el = document.getElementById(id); if (el) el.value = ''; }
+  for (const id of ['render-log', 'result-videos', 'result-title', 'result-caption', 'result-hashtags', 'approve-info']) {
+    const el = document.getElementById(id); if (el) el.innerHTML = '';
+  }
+  document.getElementById('meme-picker')?.classList.add('hidden');
+  setProgress({ progress: 0, message: 'Đang chuẩn bị…' });
+  gotoStep(1);
+}
+
+// ── Video nền ──────────────────────────────────────────────────────────────
+async function loadBackgrounds() {
+  const d = await apiCall('/api/library', 'GET', null, { silent: true });
+  state.backgrounds = d?.backgrounds || [];
+  if (state.background && !state.backgrounds.some(b => b.file === state.background)) chooseBackground(null);
+  renderBgChoosers();
+  state.musics = d?.music || [];
+  if (state.music && state.music !== '__none__' && !state.musics.some(m => m.file === state.music)) chooseMusic(null);
+  renderMusicChoosers();
+}
+
+function renderBgChoosers() {
+  const tile = (file, label, inner) => `
+    <button onclick="chooseBackground(${escapeHtml(JSON.stringify(file))})" title="${escapeHtml(label)}"
+      class="relative rounded-lg overflow-hidden border-2 ${state.background === file ? 'border-brand' : 'border-transparent hover:border-zinc-600'} bg-zinc-800 aspect-video">
+      ${inner}
+      <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[10px] px-1 truncate text-left">${escapeHtml(label)}</span>
+    </button>`;
+  const html = tile(null, 'Ngẫu nhiên', '<span class="flex items-center justify-center h-full text-2xl">🎲</span>') +
+    state.backgrounds.map(b => tile(b.file, `${b.file}${b.duration ? ` · ${Math.round(b.duration)}s` : ''}`,
+      `<img src="/api/thumb/background/${encodeURIComponent(b.file)}" class="w-full h-full object-cover" loading="lazy"/>`)).join('');
+  document.querySelectorAll('.bg-chooser').forEach(el => { el.innerHTML = html; });
+}
+
+function chooseBackground(file) {
+  state.background = file;
+  if (file) localStorage.setItem('bg_choice', file); else localStorage.removeItem('bg_choice');
+  renderBgChoosers();
+}
+
+// ── Nhạc nền ───────────────────────────────────────────────────────────────
+function renderMusicChoosers() {
+  const chip = (val, label, extra = '') => {
+    const on = (state.music || null) === val;
+    return `<span class="inline-flex items-center rounded-full border ${on ? 'border-brand bg-brand/20 text-white' : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'} text-xs">
+      <button class="px-3 py-1.5" onclick="chooseMusic(${escapeHtml(JSON.stringify(val))})">${label}</button>${extra}</span>`;
+  };
+  let html = chip(null, '🎲 Ngẫu nhiên') + chip('__none__', '🔇 Không nhạc');
+  html += state.musics.map(m => chip(m.file, escapeHtml(m.file.replace(/\.[^.]+$/, '')) + (m.duration ? ` <span class="text-zinc-500">${formatSeconds(m.duration)}</span>` : ''),
+    `<button class="pr-3 pl-1 text-zinc-400 hover:text-white" title="Nghe thử" onclick="toggleMusicPreview(${escapeHtml(JSON.stringify(m.file))})">${state.musicPlaying === m.file ? '⏸' : '▶'}</button>`)).join('');
+  if (!state.musics.length) html += '<span class="text-xs text-zinc-500 self-center">Chưa có nhạc — chép file MP3 vào thư mục <b>nhac_nen</b> hoặc bấm “＋ Thêm nhạc”.</span>';
+  document.querySelectorAll('.music-chooser').forEach(el => { el.innerHTML = html; });
+}
+
+function chooseMusic(file) {
+  state.music = file;
+  if (file) localStorage.setItem('music_choice', file); else localStorage.removeItem('music_choice');
+  renderMusicChoosers();
+}
+
+function toggleMusicPreview(file) {
+  const a = document.getElementById('music-preview');
+  if (state.musicPlaying === file) { stopMusicPreview(); return; }
+  a.src = `/api/media/music/${encodeURIComponent(file)}`;
+  a.volume = 0.6;
+  a.play().catch(() => showToast('Không phát được file nhạc này.', 'error'));
+  a.onended = () => stopMusicPreview();
+  state.musicPlaying = file;
+  renderMusicChoosers();
+}
+
+function stopMusicPreview() {
+  const a = document.getElementById('music-preview');
+  if (a) { a.pause(); a.removeAttribute('src'); }
+  state.musicPlaying = null;
+  renderMusicChoosers();
+}
+
+async function openFolder(kind) {
+  const d = await apiCall(`/api/open-folder/${kind}`, 'POST');
+  if (d) showToast(`Thư mục: ${d.path}`, 'info');
+}
+
+async function approveVideo() {
+  const btn = document.getElementById('btn-approve');
+  const done = busy(btn, 'Đang lưu…');
+  const d = await apiCall(`/api/projects/${state.projectId}/approve`, 'POST');
+  done();
+  if (!d) return;
+  btn.disabled = true;
+  btn.innerHTML = '✓ Đã lưu';
+  document.getElementById('approve-info').textContent = `Đã lưu ${d.files.join(', ')} (kèm file .txt tiêu đề/caption) vào ${d.folder}`;
+  document.getElementById('btn-next-video').classList.remove('hidden');
+  showToast('Đã lưu vào thư mục video đã duyệt.', 'success');
+}
+
+// ── Khởi động: mở lại dự án đang làm dở ─────────────────────────────────────
+(async function init() {
+  switchSourceTab('upload');
+  loadStatus();
+  loadBackgrounds();
+  if (!state.projectId) return;
+  const d = await apiCall(`/api/projects/${state.projectId}`, 'GET', null, { silent: true });
+  if (!d) { localStorage.removeItem('project_id'); state.projectId = null; return; }
+  state.project = d.project;
+  state.plan = d.plan;
+  await loadMemes();
+  if (!d.project.cards.length) return;
+  showToast('Đã mở lại video đang làm dở. Bấm “＋ Dự án mới” ở góc trên để bắt đầu video khác.', 'info');
+  if (d.plan) gotoStep(3); else gotoStep(2);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi" class="bg-black">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Thư viện — Threads Video</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: '#7C3AED', 'brand-light': '#A78BFA' } } } }</script>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="bg-black text-white min-h-screen">
+<div id="toast-container"></div>
+<header id="app-header"></header>
+
+<main class="max-w-5xl mx-auto px-4 py-6">
+  <h1 class="text-xl font-bold mb-4">Thư viện</h1>
+  <div class="flex rounded-xl bg-zinc-900 p-1 mb-5 gap-1">
+    <button data-tab="memes" onclick="setTab('memes')" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium">😂 Meme <span id="n-memes" class="text-zinc-500"></span></button>
+    <button data-tab="backgrounds" onclick="setTab('backgrounds')" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium">🎮 Video nền <span id="n-backgrounds" class="text-zinc-500"></span></button>
+    <button data-tab="music" onclick="setTab('music')" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium">🎵 Nhạc nền <span id="n-music" class="text-zinc-500"></span></button>
+    <button data-tab="approved" onclick="setTab('approved')" class="tab-btn flex-1 py-2 rounded-lg text-sm font-medium">✅ Video đã duyệt <span id="n-approved" class="text-zinc-500"></span></button>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-4 text-xs bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2">
+    <span class="text-zinc-500">Thư mục:</span>
+    <code id="folder-path" class="text-zinc-300 break-all flex-1"></code>
+    <button onclick="openFolder()" class="btn btn-ghost text-xs px-2 py-1">📂 Mở thư mục</button>
+    <button onclick="load()" class="btn btn-ghost text-xs px-2 py-1" title="Chép file vào thư mục bằng tay xong thì bấm để cập nhật">↻ Làm mới</button>
+    <a href="/settings" class="text-zinc-500 hover:text-white">Đổi thư mục…</a>
+  </div>
+
+  <!-- ═══ MEME ═══ -->
+  <section id="tab-memes" class="hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <p class="text-sm text-zinc-500">AI chọn meme dựa vào <b>tên, nhãn và mô tả</b> — nhãn càng rõ cảm xúc, meme càng đúng chỗ.
+        Meme video sẽ phát kèm tiếng của nó (tắt được trong Cài đặt).</p>
+      <button id="btn-tag-all" onclick="tagAll()" class="btn btn-ghost">🤖 AI gắn nhãn meme chưa có nhãn</button>
+    </div>
+    <div class="drop border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center mb-4 cursor-pointer hover:border-brand transition"
+         data-kind="memes" onclick="document.getElementById('in-memes').click()">
+      <p class="text-zinc-300">Kéo thả hoặc bấm để thêm meme · ảnh PNG (nên nền trong suốt), GIF, WebP · video MP4, WebM, MOV</p>
+      <input id="in-memes" type="file" multiple accept=".png,.gif,.webp,.jpg,.jpeg,.mp4,.webm,.mov,.m4v" class="hidden" onchange="upload('memes', [...this.files]); this.value=''"/>
+    </div>
+    <div class="flex items-center gap-2 mb-4">
+      <input id="filter" class="inp max-w-xs" placeholder="Lọc theo tên / nhãn…" oninput="renderMemes()"/>
+      <label class="text-sm text-zinc-400 flex items-center gap-1"><input type="checkbox" id="only-untagged" onchange="renderMemes()"/> Chỉ meme chưa có nhãn</label>
+      <span id="count" class="text-sm text-zinc-500 ml-auto"></span>
+    </div>
+    <div id="grid-memes" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- ═══ VIDEO NỀN ═══ -->
+  <section id="tab-backgrounds" class="hidden">
+    <p class="text-sm text-zinc-500 mb-3">Video gameplay (Minecraft parkour, Subway Surfers…). Tool tự cắt về khung dọc 9:16, làm tối nhẹ,
+      tắt tiếng, bắt đầu ở đoạn ngẫu nhiên và lặp lại nếu video ngắn. Khi tạo video bạn chọn nền cụ thể hoặc 🎲 ngẫu nhiên.</p>
+    <div class="drop border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center mb-4 cursor-pointer hover:border-brand transition"
+         data-kind="backgrounds" onclick="document.getElementById('in-backgrounds').click()">
+      <p class="text-zinc-300">Kéo thả hoặc bấm để thêm video nền · MP4, MOV, MKV, WebM</p>
+      <p class="text-xs text-zinc-500 mt-1">File lớn (vài GB) nên chép thẳng vào thư mục bằng nút “📂 Mở thư mục” rồi bấm “↻ Làm mới”.</p>
+      <input id="in-backgrounds" type="file" multiple accept="video/*,.mkv,.png,.jpg,.jpeg,.webp" class="hidden" onchange="upload('backgrounds', [...this.files]); this.value=''"/>
+    </div>
+    <div id="upload-progress" class="hidden mb-4">
+      <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden"><div id="upload-bar" class="progress-shimmer h-2" style="width:0%"></div></div>
+      <p id="upload-label" class="text-xs text-zinc-500 mt-1"></p>
+    </div>
+    <div id="grid-backgrounds" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+  </section>
+
+  <!-- ═══ NHẠC NỀN ═══ -->
+  <section id="tab-music" class="hidden">
+    <p class="text-sm text-zinc-500 mb-3">Nhạc chạy nhỏ phía dưới giọng đọc (chỉnh âm lượng trong Cài đặt), tự lặp nếu ngắn hơn video và nhỏ dần ở 1 giây cuối.
+      Khi tạo video bạn chọn bài cụ thể, 🎲 ngẫu nhiên hoặc 🔇 không nhạc. Nên dùng nhạc không bản quyền (vd YouTube Audio Library, Pixabay Music).</p>
+    <div class="drop border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center mb-4 cursor-pointer hover:border-brand transition"
+         data-kind="music" onclick="document.getElementById('in-music').click()">
+      <p class="text-zinc-300">Kéo thả hoặc bấm để thêm nhạc · MP3, WAV, M4A, OGG, FLAC</p>
+      <input id="in-music" type="file" multiple accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.opus" class="hidden" onchange="upload('music', [...this.files]); this.value=''"/>
+    </div>
+    <div id="grid-music" class="grid sm:grid-cols-2 gap-3"></div>
+  </section>
+
+  <!-- ═══ VIDEO ĐÃ DUYỆT ═══ -->
+  <section id="tab-approved" class="hidden">
+    <p class="text-sm text-zinc-500 mb-3">Video bạn bấm “✅ Duyệt & lưu” sau khi render. Mỗi video có kèm file .txt chứa tiêu đề, caption, hashtag để đăng.</p>
+    <div id="grid-approved" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+</main>
+
+<script src="/static/js/app.js"></script>
+<script>
+const KIND = { memes: 'meme', backgrounds: 'background', music: 'music', approved: 'approved' };
+let lib = { memes: [], backgrounds: [], music: [], approved: [], dirs: {} };
+let tab = (location.hash || '#memes').slice(1);
+if (!KIND[tab]) tab = 'memes';
+
+const enc = encodeURIComponent;
+const js = (v) => escapeHtml(JSON.stringify(v));   // truyền chuỗi an toàn vào onclick="..."
+const isVid = (f) => /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(f || '');
+
+function setTab(t) {
+  tab = t;
+  history.replaceState(null, '', '#' + t);
+  document.querySelectorAll('.tab-btn').forEach(b => b.className = 'tab-btn flex-1 py-2 rounded-lg text-sm font-medium ' +
+    (b.dataset.tab === t ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'));
+  for (const k of Object.keys(KIND)) document.getElementById('tab-' + k).classList.toggle('hidden', k !== t);
+  document.getElementById('folder-path').textContent = lib.dirs[KIND[t]] || '';
+}
+
+async function load() {
+  const d = await apiCall('/api/library');
+  if (!d) return;
+  lib = d;
+  lib.music = lib.music || [];
+  for (const k of Object.keys(KIND)) document.getElementById('n-' + k).textContent = `(${lib[k].length})`;
+  setTab(tab);
+  renderMemes(); renderBackgrounds(); renderMusic(); renderApproved();
+}
+
+async function openFolder() {
+  const d = await apiCall(`/api/open-folder/${KIND[tab]}`, 'POST');
+  if (d) showToast(`Đã mở: ${d.path}\n(Nếu không thấy cửa sổ mở ra, hãy tự mở đường dẫn này.)`, 'info');
+}
+
+function mediaPreview(kind, file, cls) {
+  const src = `/api/media/${kind}/${enc(file)}`;
+  if (isVid(file)) {
+    return `<video src="${src}" poster="/api/thumb/${kind}/${enc(file)}" preload="none" muted loop playsinline
+      class="${cls}" onmouseenter="this.play()" onmouseleave="this.pause()"></video>`;
+  }
+  return `<img src="${src}" class="${cls}" loading="lazy"/>`;
+}
+
+// ── Meme ────────────────────────────────────────────────────────────────────
+function renderMemes() {
+  const q = document.getElementById('filter').value.trim().toLowerCase();
+  const onlyUntagged = document.getElementById('only-untagged').checked;
+  const memes = lib.memes;
+  const items = memes.filter(m => (!onlyUntagged || !(m.tags || []).length) &&
+    (!q || (m.name + ' ' + (m.tags || []).join(' ') + ' ' + m.description).toLowerCase().includes(q)));
+  document.getElementById('count').textContent = `${items.length}/${memes.length} meme · ${memes.filter(m => !(m.tags || []).length).length} chưa có nhãn`;
+  document.getElementById('grid-memes').innerHTML = items.map(m => `
+    <div class="meme-card bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+      <div class="flex gap-3">
+        <div class="relative w-28 h-28 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+             style="background: repeating-conic-gradient(#27272a 0 25%, #3f3f46 0 50%) 0 0 / 16px 16px">
+          ${mediaPreview('meme', m.file, 'max-w-full max-h-full object-contain')}
+          ${m.type === 'video' ? '<span class="absolute top-1 left-1 text-[10px] bg-black/70 px-1 rounded">VIDEO</span>' : ''}
+        </div>
+        <div class="flex-1 min-w-0 space-y-1.5">
+          <input class="inp text-sm font-semibold" value="${escapeHtml(m.name)}" placeholder="Tên meme" onchange="saveMeme(${js(m.file)}, {name: this.value})"/>
+          <input class="inp text-xs" value="${escapeHtml((m.tags || []).join(', '))}" placeholder="nhãn: khinh bỉ, mỉa mai, cạn lời…"
+                 onchange="saveMeme(${js(m.file)}, {tags: this.value})"/>
+          <p class="text-[10px] text-zinc-600 truncate">${escapeHtml(m.file)}</p>
+        </div>
+      </div>
+      <textarea class="inp text-xs mt-2" rows="2" placeholder="Mô tả biểu cảm/hành động"
+                onchange="saveMeme(${js(m.file)}, {description: this.value})">${escapeHtml(m.description || '')}</textarea>
+      <div class="flex gap-1.5 mt-2">
+        <button class="btn btn-ghost text-xs px-2 py-1 flex-1" onclick="tag(this, ${js(m.file)})">🤖 AI gắn nhãn</button>
+        ${m.type === 'video' || /\.gif$/i.test(m.file) ? '' :
+          `<button class="btn btn-ghost text-xs px-2 py-1 flex-1" onclick="removeBg(this, ${js(m.file)})" title="Biến nền trắng quanh meme thành trong suốt">✨ Xóa nền trắng</button>`}
+        <button class="btn btn-danger text-xs px-2 py-1" onclick="del('meme', ${js(m.file)})">🗑</button>
+      </div>
+    </div>`).join('') || '<p class="text-zinc-500 col-span-full text-center py-10">Chưa có meme nào.</p>';
+}
+
+async function saveMeme(file, fields) {
+  const d = await apiCall(`/api/memes/${enc(file)}`, 'PUT', fields);
+  if (d) { Object.assign(lib.memes.find(m => m.file === file), d.meme); showToast('Đã lưu.', 'success', 1200); }
+}
+
+async function tag(btn, file) {
+  const done = busy(btn, 'Đang xem…');
+  try {
+    const d = await apiCall(`/api/memes/${enc(file)}/tag-ai`, 'POST');
+    if (d) { Object.assign(lib.memes.find(m => m.file === file), d.meme); renderMemes(); }
+    return !!d;
+  } finally { done(); }
+}
+
+async function tagAll() {
+  const todo = lib.memes.filter(m => !(m.tags || []).length);
+  if (!todo.length) return showToast('Meme nào cũng đã có nhãn.', 'info');
+  const btn = document.getElementById('btn-tag-all');
+  const done = busy(btn, `0/${todo.length}`);
+  let ok = 0;
+  try {
+    for (const [i, m] of todo.entries()) {
+      btn.innerHTML = `<span class="spinner"></span> ${i + 1}/${todo.length}`;
+      const d = await apiCall(`/api/memes/${enc(m.file)}/tag-ai`, 'POST');
+      if (!d) break;
+      Object.assign(m, d.meme);
+      ok++;
+      renderMemes();
+    }
+  } finally { done(); }
+  showToast(`AI đã gắn nhãn ${ok}/${todo.length} meme.`, ok === todo.length ? 'success' : 'warning');
+}
+
+async function removeBg(btn, file) {
+  const done = busy(btn, 'Đang xử lý…');
+  try {
+    if (await apiCall(`/api/memes/${enc(file)}/remove-bg`, 'POST')) { showToast('Đã xóa nền trắng.', 'success'); await load(); }
+  } finally { done(); }
+}
+
+// ── Video nền ───────────────────────────────────────────────────────────────
+function renderBackgrounds() {
+  document.getElementById('grid-backgrounds').innerHTML = lib.backgrounds.map(b => `
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div class="aspect-video bg-black">${mediaPreview('background', b.file, 'w-full h-full object-cover')}</div>
+      <div class="p-2 flex items-center gap-2">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs truncate" title="${escapeHtml(b.file)}">${escapeHtml(b.file)}</p>
+          <p class="text-[11px] text-zinc-500">${b.duration ? formatSeconds(b.duration) + ' · ' : ''}${b.size_mb} MB</p>
+        </div>
+        <button class="btn btn-danger text-xs px-2 py-1" onclick="del('background', ${js(b.file)})">🗑</button>
+      </div>
+    </div>`).join('') || '<p class="text-zinc-500 col-span-full text-center py-10">Chưa có video nền nào.</p>';
+}
+
+// ── Nhạc nền ────────────────────────────────────────────────────────────────
+function renderMusic() {
+  document.getElementById('grid-music').innerHTML = lib.music.map(m => `
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xl">🎵</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm truncate" title="${escapeHtml(m.file)}">${escapeHtml(m.file)}</p>
+          <p class="text-[11px] text-zinc-500">${m.duration ? formatSeconds(m.duration) + ' · ' : ''}${m.size_mb} MB</p>
+        </div>
+        <button class="btn btn-danger text-xs px-2 py-1" onclick="del('music', ${js(m.file)})">🗑</button>
+      </div>
+      <audio src="/api/media/music/${enc(m.file)}" controls preload="none" class="w-full h-8"></audio>
+    </div>`).join('') || '<p class="text-zinc-500 col-span-full text-center py-10">Chưa có bài nhạc nào.</p>';
+}
+
+// ── Video đã duyệt ──────────────────────────────────────────────────────────
+function renderApproved() {
+  document.getElementById('grid-approved').innerHTML = lib.approved.map(v => `
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+      <video src="/api/media/approved/${enc(v.file)}" controls preload="none" poster="/api/thumb/approved/${enc(v.file)}"
+             class="w-full rounded-lg bg-black aspect-[9/16] object-contain"></video>
+      <p class="text-xs mt-2 truncate" title="${escapeHtml(v.file)}">${escapeHtml(v.file)}</p>
+      <p class="text-[11px] text-zinc-500">${new Date(v.mtime * 1000).toLocaleString('vi')} · ${v.duration ? formatSeconds(v.duration) : ''} · ${v.size_mb} MB</p>
+      <div class="flex gap-1.5 mt-2">
+        <a class="btn btn-ghost text-xs px-2 py-1 flex-1" href="/api/media/approved/${enc(v.file)}" download>⬇ Tải</a>
+        ${v.caption_file ? `<a class="btn btn-ghost text-xs px-2 py-1 flex-1" href="/api/media/approved/${enc(v.caption_file)}" target="_blank">📝 Caption</a>` : ''}
+        <button class="btn btn-danger text-xs px-2 py-1" onclick="del('approved', ${js(v.file)})">🗑</button>
+      </div>
+    </div>`).join('') || '<p class="text-zinc-500 col-span-full text-center py-10">Chưa có video nào được duyệt. Sau khi render, bấm “✅ Duyệt & lưu”.</p>';
+}
+
+// ── Upload / xóa ────────────────────────────────────────────────────────────
+function upload(t, files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f, f.name));
+  const url = t === 'memes' ? '/api/memes' : t === 'music' ? '/api/music' : '/api/backgrounds';
+  // XHR để hiện % tải lên (video nền có thể rất nặng)
+  const xhr = new XMLHttpRequest();
+  const box = document.getElementById('upload-progress');
+  if (t !== 'memes') box.classList.remove('hidden');
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    const pct = Math.round(e.loaded / e.total * 100);
+    document.getElementById('upload-bar').style.width = pct + '%';
+    document.getElementById('upload-label').textContent = `Đang tải lên… ${pct}%`;
+  };
+  xhr.onload = async () => {
+    box.classList.add('hidden');
+    let d = null;
+    try { d = JSON.parse(xhr.responseText); } catch (_) {}
+    if (xhr.status >= 400) return showToast(d?.detail || `Lỗi ${xhr.status}`, 'error');
+    const n = (d.added || []).length;
+    showToast(`Đã thêm ${n} file.` + ((d.errors || []).length ? `\nLỗi: ${d.errors.join('; ')}` : ''), (d.errors || []).length ? 'warning' : 'success');
+    await load();
+  };
+  xhr.onerror = () => { box.classList.add('hidden'); showToast('Tải lên thất bại.', 'error'); };
+  xhr.open('POST', url);
+  xhr.send(fd);
+}
+
+async function del(kind, file) {
+  if (!confirm(`Xóa “${file}” khỏi thư mục (xóa cả file trên máy)?`)) return;
+  if (await apiCall(`/api/files/${kind}/${enc(file)}`, 'DELETE')) await load();
+}
+
+document.querySelectorAll('.drop').forEach(el => {
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('border-brand'); });
+  el.addEventListener('dragleave', () => el.classList.remove('border-brand'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('border-brand'); upload(el.dataset.kind, [...e.dataTransfer.files]); });
+});
+
+load();
+</script>
+</body>
+</html>

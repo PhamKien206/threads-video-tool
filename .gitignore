@@ -1,0 +1,28 @@
+# Cấu hình chứa API key — KHÔNG commit
+config.json
+
+# Môi trường & cache
+.venv/
+__pycache__/
+*.pyc
+cache/
+
+# Dữ liệu người dùng (3 thư mục + dự án)
+projects/
+nen_video/*
+meme/*
+video_da_duyet/*
+!nen_video/.gitkeep
+!meme/.gitkeep
+!video_da_duyet/.gitkeep
+library/music/*
+!library/music/.gitkeep
+library/memes.json
+library/.render_history.json
+
+# Kết quả selftest
+samples/_work/
+samples/out*.mp4
+nhac_nen/*
+!nhac_nen/.gitkeep
+library/.music_history.json
